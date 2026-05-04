@@ -1,0 +1,6 @@
+# Ephemeral / local only (no duplicate of root app files)
+release/
+upload.zip
+.DS_Store
+
+SUBMISSION_CHECKLIST.md
