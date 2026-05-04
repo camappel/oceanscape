@@ -1,6 +1,9 @@
 # Ephemeral / local only (no duplicate of root app files)
+scripts/
 release/
 upload.zip
 .DS_Store
 
 SUBMISSION_CHECKLIST.md
+DEPLOY.md
+AUDIO_EXPORT.md

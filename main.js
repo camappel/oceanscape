@@ -96,77 +96,6 @@ let ornamentBusyUntil = 0;
 /** @type {ReturnType<typeof createToneGraph> | null} */
 let graph = null;
 
-/** @type {MediaRecorder | null} */
-let mixRecorder = null;
-/** @type {BlobPart[]} */
-let mixChunks = [];
-/** @type {string} */
-let mixRecordMime = "";
-/** @type {Blob | null} */
-let lastExportBlob = null;
-/** @type {(() => void) | null} */
-let mixRecorderStopResolve = null;
-
-function pickMixRecorderMimeType() {
-  const candidates = [
-    "audio/webm;codecs=opus",
-    "audio/webm",
-    "audio/mp4",
-  ];
-  for (const t of candidates) {
-    if (typeof MediaRecorder !== "undefined" && MediaRecorder.isTypeSupported(t)) return t;
-  }
-  return "";
-}
-
-function setExportUi({ recording, canRecord, canStop, canDownload, statusText }) {
-  const startRec = document.getElementById("exportRecStart");
-  const stopRec = document.getElementById("exportRecStop");
-  const dl = document.getElementById("exportDownloadLast");
-  const status = document.getElementById("exportStatus");
-  if (startRec) {
-    startRec.disabled = !canRecord;
-    startRec.textContent = recording ? "Recording…" : "Record mix";
-  }
-  if (stopRec) stopRec.disabled = !canStop;
-  if (dl) dl.disabled = !canDownload;
-  if (status && statusText != null) status.textContent = statusText;
-}
-
-function waitForMixRecorderStopped() {
-  return new Promise((resolve) => {
-    if (!mixRecorder || mixRecorder.state === "inactive") {
-      resolve();
-      return;
-    }
-    mixRecorderStopResolve = resolve;
-    mixRecorder.stop();
-  });
-}
-
-function resetExportForNewSession() {
-  mixChunks = [];
-  mixRecordMime = "";
-  lastExportBlob = null;
-  if (mixRecorder && mixRecorder.state !== "inactive") {
-    mixRecorder.stop();
-  }
-  mixRecorder = null;
-  mixRecorderStopResolve = null;
-}
-
-function setExportIdleAfterTeardown() {
-  setExportUi({
-    recording: false,
-    canRecord: false,
-    canStop: false,
-    canDownload: Boolean(lastExportBlob),
-    statusText: lastExportBlob
-      ? "Download the last captured mix, or convert to MP3 (docs/AUDIO_EXPORT.md)."
-      : "",
-  });
-}
-
 const stormViz = createStormViz(document.getElementById("viz"), {
   normRanges: {
     filterHz: [MUSIC.filterMinHz, MUSIC.filterMaxHz],
@@ -180,12 +109,10 @@ stormViz.clear();
 document.getElementById("startBtn").onclick = start;
 
 const decisionEls = {
-  modeRoot: document.getElementById("decModeRoot"),
   bass: document.getElementById("decBass"),
   horn: document.getElementById("decHorn"),
   hornNote: document.getElementById("decHornNote"),
-  perc: document.getElementById("decPerc"),
-  crash: document.getElementById("decCrash"),
+  percCrash: document.getElementById("decPercCrash"),
 };
 const probEls = {
   hornFill: document.getElementById("probHornFill"),
@@ -223,22 +150,25 @@ function modeReasonFromWater(waterLevel) {
   return { root: "A", rule: "water >= 0.75", water };
 }
 
+function percCrashDecisionLabel(percTriggered, crashTriggered) {
+  if (!percTriggered && !crashTriggered) return "No hit";
+  if (percTriggered && crashTriggered) return "Percussion + crash";
+  if (percTriggered) return "Percussion";
+  return "Crash";
+}
+
 function resetDecisionViz() {
-  setDecisionText(decisionEls.modeRoot, "-");
   setDecisionText(decisionEls.bass, "-");
   setDecisionText(decisionEls.horn, "-");
   setDecisionText(decisionEls.hornNote, "-");
-  setDecisionText(decisionEls.perc, "-");
-  setDecisionText(decisionEls.crash, "-");
+  setDecisionText(decisionEls.percCrash, "-");
 }
 
 function updateDecisionViz({ mode, ornamentTriggered, ornamentAnchor, percTriggered, crashTriggered }) {
-  setDecisionText(decisionEls.modeRoot, mode.root);
   setDecisionText(decisionEls.bass, mode.bass.join(" - "));
   setDecisionText(decisionEls.horn, ornamentTriggered ? "Phrase" : "No phrase");
   setDecisionText(decisionEls.hornNote, ornamentAnchor ?? "-");
-  setDecisionText(decisionEls.perc, percTriggered ? "Hit" : "No hit");
-  setDecisionText(decisionEls.crash, crashTriggered ? "Crash" : "No crash");
+  setDecisionText(decisionEls.percCrash, percCrashDecisionLabel(percTriggered, crashTriggered));
 }
 
 function resetProbabilityViz() {
@@ -449,9 +379,6 @@ function maybeTriggerPercussion(time, row, controls) {
 
 function createToneGraph() {
   const master = new Tone.Gain(MUSIC.masterGain);
-  const nativeCtx = Tone.getContext().rawContext;
-  const recordDest = nativeCtx.createMediaStreamDestination();
-  master.connect(recordDest);
   master.toDestination();
 
   const reverb = new Tone.Reverb({ decay: 10, wet: 0.82 }).connect(master);
@@ -527,7 +454,6 @@ function createToneGraph() {
 
   return {
     master,
-    recordDest,
     reverb,
     delay,
     drive,
@@ -545,13 +471,6 @@ function createToneGraph() {
 
 function disposeGraph(g) {
   if (!g) return;
-  if (g.recordDest) {
-    try {
-      g.master.disconnect(g.recordDest);
-    } catch (_) {
-      /* already disconnected */
-    }
-  }
   g.windNoise.stop();
   g.pad.dispose();
   g.perc.dispose();
@@ -568,9 +487,7 @@ function disposeGraph(g) {
   g.master.dispose();
 }
 
-async function stopPlaybackAsync(completed) {
-  await waitForMixRecorderStopped();
-
+function stopPlaybackAsync(completed) {
   Tone.Transport.stop();
   if (repeatEventId !== null) {
     Tone.Transport.clear(repeatEventId);
@@ -595,7 +512,6 @@ async function stopPlaybackAsync(completed) {
   resetDecisionViz();
   resetProbabilityViz();
   resetModeReasonViz();
-  setExportIdleAfterTeardown();
 }
 
 function stopPlayback(completed) {
@@ -610,9 +526,6 @@ async function start() {
   btn.textContent = "Loading…";
 
   try {
-    await waitForMixRecorderStopped();
-    resetExportForNewSession();
-
     await Tone.start();
     const build =
       typeof window !== "undefined" && window.__AMBIENT_RELEASE__
@@ -627,7 +540,6 @@ async function start() {
     stormData = json;
     i = 0;
     ornamentBusyUntil = 0;
-    resetExportForNewSession();
     stormViz.clear();
     resetDecisionViz();
     resetProbabilityViz();
@@ -643,17 +555,6 @@ async function start() {
     repeatEventId = Tone.Transport.scheduleRepeat(onStep, MUSIC.stepSeconds);
     Tone.Transport.start("+0.05");
     btn.textContent = "Playing…";
-
-    const mime = pickMixRecorderMimeType();
-    setExportUi({
-      recording: false,
-      canRecord: Boolean(graph?.recordDest?.stream && mime),
-      canStop: false,
-      canDownload: false,
-      statusText: mime
-        ? "Optional: record the live mix, then convert to MP3 (see docs/AUDIO_EXPORT.md)."
-        : "Recording not supported in this browser; use system loopback + Audacity, or try Chrome.",
-    });
   } catch (err) {
     console.error(err);
     btn.disabled = false;
@@ -707,90 +608,3 @@ function onStep(time) {
 
   i += 1;
 }
-
-function mixFileExtensionForMime(mime) {
-  const m = (mime || "").toLowerCase();
-  if (m.includes("webm")) return "webm";
-  if (m.includes("mp4")) return "m4a";
-  return "bin";
-}
-
-function startMixRecording() {
-  if (!graph?.recordDest?.stream || mixRecorder) return;
-  const mime = pickMixRecorderMimeType();
-  if (!mime) return;
-
-  mixRecordMime = mime;
-  mixChunks = [];
-  try {
-    mixRecorder = new MediaRecorder(graph.recordDest.stream, {
-      mimeType: mime,
-      audioBitsPerSecond: 192000,
-    });
-  } catch (_) {
-    mixRecorder = new MediaRecorder(graph.recordDest.stream);
-    mixRecordMime = mixRecorder.mimeType || mime;
-  }
-
-  mixRecorder.ondataavailable = (e) => {
-    if (e.data && e.data.size) mixChunks.push(e.data);
-  };
-  mixRecorder.onstop = () => {
-    const type = mixRecordMime || "audio/webm";
-    lastExportBlob = new Blob(mixChunks, { type });
-    mixChunks = [];
-    mixRecorder = null;
-    const resolver = mixRecorderStopResolve;
-    mixRecorderStopResolve = null;
-    if (resolver) resolver();
-
-    const stillPlaying = isPlaying;
-    const mimeNext = pickMixRecorderMimeType();
-    setExportUi({
-      recording: false,
-      canRecord: stillPlaying && Boolean(graph?.recordDest?.stream && mimeNext),
-      canStop: false,
-      canDownload: true,
-      statusText: stillPlaying
-        ? "Mix captured. Download, or convert to MP3 (see docs/AUDIO_EXPORT.md)."
-        : "Mix captured. Download when ready.",
-    });
-  };
-
-  mixRecorder.start(250);
-  setExportUi({
-    recording: true,
-    canRecord: false,
-    canStop: true,
-    canDownload: false,
-    statusText: "Recording…",
-  });
-}
-
-function stopMixRecordingManual() {
-  if (mixRecorder && mixRecorder.state !== "inactive") {
-    mixRecorder.stop();
-  }
-}
-
-document.getElementById("exportRecStart")?.addEventListener("click", () => {
-  startMixRecording();
-});
-
-document.getElementById("exportRecStop")?.addEventListener("click", () => {
-  stopMixRecordingManual();
-});
-
-document.getElementById("exportDownloadLast")?.addEventListener("click", () => {
-  if (!lastExportBlob) return;
-  const ext = mixFileExtensionForMime(lastExportBlob.type);
-  const url = URL.createObjectURL(lastExportBlob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `ambient-modal-mix-${Date.now()}.${ext}`;
-  a.rel = "noopener";
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 2000);
-});

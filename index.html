@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Ambien Modal Storm Sonification</title>
+  <title>Infinite Procedurally Generated Ambient Modal Storm Sonification Machine</title>
   <script src="https://unpkg.com/tone"></script>
   <style>
     body {
@@ -215,67 +215,23 @@
       color: #e5e7eb;
       line-height: 1.45;
     }
-    .export-toolbar {
-      margin: 18px auto 0;
-      padding: 12px;
-      border: 1px solid #334155;
-      border-radius: 8px;
-      background: #0b1220;
-      max-width: 920px;
-      text-align: left;
-    }
-    .export-toolbar h3 {
-      margin: 0 0 8px;
-      font-size: 13px;
-      text-transform: uppercase;
-      letter-spacing: 0.03em;
-      color: #cbd5e1;
-    }
-    .export-row {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      align-items: center;
-    }
-    .export-toolbar button {
-      font-size: 14px;
-      padding: 8px 14px;
-    }
-    #exportStatus {
-      flex: 1 1 220px;
-      font-size: 12px;
-      color: #94a3b8;
-      line-height: 1.4;
-      min-width: 0;
-    }
   </style>
 </head>
 <body>
   <div class="wrap">
     <button id="startBtn">Start Modal Storm</button>
-    <section class="export-toolbar" aria-label="Mix export">
-      <h3>Competition export</h3>
-      <div class="export-row">
-        <button type="button" id="exportRecStart" disabled>Record mix</button>
-        <button type="button" id="exportRecStop" disabled>Stop recording</button>
-        <button type="button" id="exportDownloadLast" disabled>Download capture</button>
-        <span id="exportStatus">After you press Play, you can record the master mix.</span>
-      </div>
-    </section>
     <canvas id="viz" width="920" height="460"></canvas>
     <section class="decisions" aria-live="polite" aria-label="Live musical decisions">
-      <h3>Live Musical Decisions</h3>
+      <h3>Conductor</h3>
       <div class="decision-grid">
-        <div class="decision-item"><strong>Mode Root</strong><span id="decModeRoot">-</span></div>
         <div class="decision-item"><strong>Bass Chord</strong><span id="decBass">-</span></div>
         <div class="decision-item"><strong>Horn Trigger</strong><span id="decHorn">-</span></div>
         <div class="decision-item"><strong>Horn Note Anchor</strong><span id="decHornNote">-</span></div>
-        <div class="decision-item"><strong>Percussion</strong><span id="decPerc">-</span></div>
-        <div class="decision-item"><strong>Crash</strong><span id="decCrash">-</span></div>
+        <div class="decision-item"><strong>Percussion</strong><span id="decPercCrash">-</span></div>
       </div>
     </section>
     <section class="mode-reason" aria-live="polite" aria-label="Mode root reason">
-      <h3>Why Mode Root Changes</h3>
+      <h3>Mode Root</h3>
       <div class="mode-meta">
         <span>Current water: <strong id="modeWaterVal">-</strong></span>
       </div>
@@ -294,7 +250,7 @@
       </div>
     </section>
     <section class="probabilities" aria-live="polite" aria-label="Live hit probabilities">
-      <h3>Live Hit Probabilities</h3>
+      <h3>Ornamentation Probabilities</h3>
       <div class="prob-row">
         <span class="prob-label">Horn phrase</span>
         <div class="prob-track"><div class="prob-fill" id="probHornFill"></div></div>
