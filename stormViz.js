@@ -8,6 +8,10 @@ function clamp(v, lo, hi) {
   return Math.min(hi, Math.max(lo, v));
 }
 
+/** Dataset context (matches `ambient_final/api.py` CCO stack; `storm_score.json` window). */
+const STORM_DATASET_TITLE = "Storm Bert: Brighton & Pevensey Bay";
+const STORM_DATASET_SUB = "CCO observations: Normalised (0–1)";
+
 /** Storm row keys (0–1 assumed). */
 const STORM_SERIES = [
   { key: "water_level", label: "water", color: "#7dd3fc" },
@@ -48,7 +52,7 @@ export function createStormViz(canvas, options) {
   let lastSnapshot = null;
 
   const layout = {
-    headerH: 26,
+    headerH: 42,
     footerH: 22,
     labelColW: 108,
     marginR: 10,
@@ -128,12 +132,16 @@ export function createStormViz(canvas, options) {
     ctx.font = "600 12px system-ui, sans-serif";
     ctx.textAlign = "left";
     ctx.textBaseline = "alphabetic";
-    ctx.fillText("Storm inputs (full series + playhead)", 8, 17);
+    ctx.fillText(STORM_DATASET_TITLE, 8, 16);
 
     ctx.fillStyle = "#94a3b8";
+    ctx.font = "10px system-ui, sans-serif";
+    ctx.textBaseline = "alphabetic";
+    ctx.fillText(STORM_DATASET_SUB, 8, 31);
+
     ctx.font = "11px system-ui, sans-serif";
     ctx.textAlign = "right";
-    ctx.fillText(lastRow?.time ? `now: ${lastRow.time}` : "", plotRight, 17);
+    ctx.fillText(lastRow?.time ? `now: ${lastRow.time}` : "", plotRight, 16);
     ctx.textAlign = "left";
 
     let y = innerTop;
@@ -231,7 +239,6 @@ export function createStormViz(canvas, options) {
       y += laneH;
     }
 
-    drawSectionTitle("Storm inputs (0-1)");
     for (const s of STORM_SERIES) {
       drawLane(
         s,

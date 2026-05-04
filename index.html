@@ -3,8 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Infinite Procedurally Generated Ambient Modal Storm Sonification Machine</title>
+  <title>Oceanscape: Infinite Procedurally Generated Ambient Modal Storm Sonification Machine</title>
   <script src="https://unpkg.com/tone"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="anonymous">
   <style>
     body {
       margin: 0;
@@ -215,11 +216,114 @@
       color: #e5e7eb;
       line-height: 1.45;
     }
+    .storm-dataset {
+      margin: 16px auto 24px;
+      padding: 14px 16px;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      background: #0b1220;
+      max-width: 920px;
+      text-align: left;
+    }
+    .storm-dataset h2 {
+      margin: 0 0 8px;
+      font-size: 15px;
+      font-weight: 600;
+      color: #f1f5f9;
+      letter-spacing: 0.01em;
+    }
+    .storm-dataset p {
+      margin: 0;
+      font-size: 13px;
+      color: #cbd5e1;
+      line-height: 1.5;
+    }
+    .storm-dataset .muted {
+      color: #94a3b8;
+      font-size: 12px;
+    }
+    .storm-dataset-map-wrap {
+      margin: 14px 0 0;
+    }
+    .storm-dataset-map {
+      height: 260px;
+      width: 100%;
+      border-radius: 8px;
+      border: 1px solid #334155;
+      overflow: hidden;
+      background: #0f172a;
+    }
+    .storm-dataset-map-wrap figcaption {
+      margin-top: 8px;
+    }
+    .storm-dataset .leaflet-container {
+      font-family: Inter, system-ui, -apple-system, sans-serif;
+      background: #0f172a;
+    }
+    .storm-dataset .leaflet-control-attribution {
+      background: rgba(15, 23, 42, 0.82);
+      color: #94a3b8;
+      font-size: 10px;
+      max-width: 100%;
+    }
+    .storm-dataset .leaflet-control-attribution a {
+      color: #7dd3fc;
+    }
+    .storm-dataset .leaflet-bar a {
+      background: #111827;
+      color: #e2e8f0;
+      border-color: #475569;
+    }
+    .storm-dataset .leaflet-bar a:hover {
+      background: #1e293b;
+    }
+    .storm-dataset .leaflet-tooltip.storm-site-tooltip {
+      background: #111827;
+      color: #f1f5f9;
+      border: 1px solid #475569;
+      border-radius: 6px;
+      padding: 6px 10px;
+      font-size: 12px;
+      font-weight: 600;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
+    }
+    .storm-dataset .leaflet-tooltip.storm-site-tooltip::before {
+      border-top-color: #475569;
+    }
   </style>
 </head>
 <body>
   <div class="wrap">
-    <button id="startBtn">Start Modal Storm</button>
+    <section class="storm-dataset" aria-label="Data behind the visualization">
+      <h2>Oceanscape: Infinite Procedurally Generated Storm Sonification Machine</h2>
+      <p>
+        I wanted to represent the metocean conditions of the English Channel in an abstract, experiential way, and so I built an infinite procedural ambient music machine. 
+        <br><br>
+        My machine does not use transformers, imagination, or any such human technology. 
+        Instead, I gave it a set of rules, which it is incapable of breaking, and real oceanographic data from the Channel Coastal Observatory
+        (<a href="https://coastalmonitoring.org/" rel="noopener noreferrer">coastalmonitoring.org</a>) API at <strong>Brighton</strong> and <strong>Pevensey Bay</strong> during 2024's Storm Bert. 
+        When the machine applies the data to the rules, it sounds a bit like music. 
+        <br><br>
+        For example, the tides set the tonal centre, which is then outlined by pads. 
+        Ornamentation melodies are trigered by chance, and the probability is defined by the surge residuals.
+        To get the undulating effect that's supposed to mimic the waves themselves, I assigned various filters and FX to atmospheric and wave data.
+        Timesteps follow the tide record (10-minute resolution) and each channel is min–max normalized to 0–1.
+        <br><br>
+        The development of this machine was inspired by Brian Eno, Bon Iver, Miles Davis, and No Man's Sky.
+      </p>
+      <figure class="storm-dataset-map-wrap">
+        <div
+          id="stormDatasetMap"
+          class="storm-dataset-map"
+          role="region"
+          aria-label="Map of south coast CCO sensor locations"
+        ></div>
+        <figcaption class="muted">
+          CCO reporting locations.
+        </figcaption>
+      </figure>
+    </section>
+    <button id="startBtn">Start Storm</button>
     <canvas id="viz" width="920" height="460"></canvas>
     <section class="decisions" aria-live="polite" aria-label="Live musical decisions">
       <h3>Conductor</h3>
@@ -268,6 +372,65 @@
       </div>
     </section>
   </div>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin="anonymous"></script>
+  <script>
+    (function initStormDatasetMap() {
+      if (typeof L === "undefined") return;
+      var el = document.getElementById("stormDatasetMap");
+      if (!el) return;
+
+      /** Approximate CCO “Brighton” / “Pevensey Bay” coastal points (WGS84). */
+      var sites = [
+        {
+          latlng: [50.8197, -0.1364],
+          color: "#7dd3fc",
+          label: "Tide gauge, met, tide predictions",
+        },
+        {
+          latlng: [50.791, 0.342],
+          color: "#fde047",
+          label: "Waves",
+        },
+      ];
+
+      var map = L.map(el, {
+        scrollWheelZoom: false,
+        attributionControl: true,
+        zoomControl: true,
+      });
+
+      L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
+        attribution:
+          '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+        subdomains: "abcd",
+        maxZoom: 20,
+      }).addTo(map);
+
+      sites.forEach(function (site) {
+        L.circleMarker(site.latlng, {
+          radius: 9,
+          color: "#0f172a",
+          weight: 2,
+          fillColor: site.color,
+          fillOpacity: 0.92,
+        })
+          .addTo(map)
+          .bindTooltip(site.label, {
+            permanent: true,
+            direction: "top",
+            offset: [0, -8],
+            opacity: 1,
+            className: "storm-site-tooltip",
+          })
+          .openTooltip();
+      });
+
+      map.fitBounds(L.latLngBounds(sites.map(function (s) { return s.latlng; })), {
+        padding: [36, 36],
+        maxZoom: 11,
+      });
+    })();
+  </script>
   <script type="module" src="./main.js"></script>
 </body>
 </html>
